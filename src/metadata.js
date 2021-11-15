@@ -1,9 +1,37 @@
 const fs = require("fs");
 const Moralis = require("moralis/node");
 const { default: axios } = require("axios");
-const { saveToDb } = require("./filesystem");
+const request = require("request");
 
-const { description, baseImageUri } = require("../input/config.js");
+// upload to database
+const saveToDb = async (metaHash, imageHash, editionSize) => {
+  for (let i = 1; i < editionSize + 1; i++) {
+    let id = i.toString();
+    let paddedHex = (
+      "0000000000000000000000000000000000000000000000000000000000000000" + id
+    ).slice(-64);
+    let url = `https://ipfs.moralis.io:2053/ipfs/${metaHash}/metadata/${paddedHex}.json`;
+    let options = { json: true };
+
+    request(url, options, (error, res, body) => {
+      if (error) {
+        return console.log(error);
+      }
+
+      if (!error && res.statusCode == 200) {
+        // Save file reference to Moralis
+        const FileDatabase = new Moralis.Object("Metadata");
+        FileDatabase.set("edition", body.edition);
+        FileDatabase.set("name", body.name);
+        FileDatabase.set("image", body.image);
+        FileDatabase.set("attributes", body.attributes);
+        FileDatabase.set("meta_hash", metaHash);
+        FileDatabase.set("image_hash", imageHash);
+        FileDatabase.save();
+      }
+    });
+  }
+};
 
 // write metadata locally to json files
 const writeMetaData = metadataList => {
@@ -11,11 +39,11 @@ const writeMetaData = metadataList => {
 };
 
 // add metadata for individual nft edition
-const generateMetadata = (dna, edition, attributesList, path) => {
+const generateMetadata = (edition, attributesList, path) => {
   let tempMetadata = {
     name: `#${edition}`,
-    description: description,
-    image: path || baseImageUri,
+    description: "New king in town",
+    image: path || null,
     edition: edition,
     date: Date.now(),
     attributes: attributesList
@@ -50,7 +78,6 @@ const uploadMetadata = async (
 
     // do something else here after firstFunction completes
     let nftMetadata = generateMetadata(
-      imageDataArray[i].newDna,
       imageDataArray[i].editionCount,
       imageDataArray[i].attributesList,
       imageDataArray[i].filePath
@@ -64,7 +91,7 @@ const uploadMetadata = async (
       ).toString("base64")
     });
 
-    // save locally as file
+    // save JSON file locally
     fs.writeFileSync(
       `./output/${filename}`,
       JSON.stringify(metadataList.find(meta => meta.edition == i))
