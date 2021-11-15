@@ -15,13 +15,13 @@ const addRarity = (_id, _from, _to) => {
     value: _id,
     from: _from,
     to: _to,
-    layerPercent: {},
+    layerPercent: {}
   };
   return _rarityWeight;
 };
 
 // get the name without last 4 characters -> slice .png from the name
-const cleanName = (_str) => {
+const cleanName = _str => {
   let name = _str.slice(0, -4);
   return name;
 };
@@ -30,12 +30,12 @@ const cleanName = (_str) => {
 const getElements = (_path, _elementCount) => {
   return fs
     .readdirSync(_path)
-    .filter((item) => !/(^|\/)\.[^\/\.]/g.test(item))
-    .map((i) => {
+    .filter(item => !/(^|\/)\.[^\/\.]/g.test(item))
+    .map(i => {
       return {
         id: _elementCount,
         name: cleanName(i),
-        path: `${_path}/${i}`,
+        path: `${_path}/${i}`
       };
     });
 };
@@ -63,11 +63,11 @@ const addLayer = (_id, _position, _size) => {
   let elements = [];
   let elementCount = 0;
   let elementIdsForRarity = {};
-  rarityWeights.forEach((rarityWeight) => {
+  rarityWeights.forEach(rarityWeight => {
     let elementsForRarity = getElements(`${dir}/${_id}/${rarityWeight.value}`);
 
     elementIdsForRarity[rarityWeight.value] = [];
-    elementsForRarity.forEach((_elementForRarity) => {
+    elementsForRarity.forEach(_elementForRarity => {
       _elementForRarity.id = `${editionDnaPrefix}${elementCount}`;
       elements.push(_elementForRarity);
       elementIdsForRarity[rarityWeight.value].push(_elementForRarity.id);
@@ -81,7 +81,7 @@ const addLayer = (_id, _position, _size) => {
     position: _position,
     size: _size,
     elements,
-    elementIdsForRarity,
+    elementIdsForRarity
   };
   return elementsForLayer;
 };
@@ -92,13 +92,13 @@ const addLayer = (_id, _position, _size) => {
 // @param _percentages - an object defining the rarities and the percentage with which a given rarity for this layer should be used
 const addRarityPercentForLayer = (_rarityId, _layerId, _percentages) => {
   let _rarityFound = false;
-  rarityWeights.forEach((_rarityWeight) => {
+  rarityWeights.forEach(_rarityWeight => {
     if (_rarityWeight.value === _rarityId) {
       let _percentArray = [];
       for (let percentType in _percentages) {
         _percentArray.push({
           id: percentType,
-          percent: _percentages[percentType],
+          percent: _percentages[percentType]
         });
       }
       _rarityWeight.layerPercent[_layerId] = _percentArray;
@@ -127,18 +127,18 @@ const baseImageUri = "YOUR_MORALIS_SERVER_URL";
 // id for edition to start from
 const startEditionFrom = 1;
 // amount of NFTs to generate in edition
-const editionSize = 10;
+const editionSize = 1;
 // prefix to add to edition dna ids (to distinguish dna counts from different generation processes for the same collection)
 const editionDnaPrefix = 0;
 
 // create required weights
 // for each weight, call 'addRarity' with the id and from which to which element this rarity should be applied
 let rarityWeights = [
-  /* 
+  /*
   addRarity("super_rare", 1, 1),
   addRarity("rare", 1, 1),
   */
-  addRarity("original", 1, editionSize),
+  addRarity("original", 1, editionSize)
 ];
 
 // create required layers
@@ -153,7 +153,7 @@ const layers = [
   addLayer("Mouths"),
   addLayer("Eyes"),
   addLayer("Accessories"),
-  addLayer("Noses"),
+  addLayer("Noses")
 ];
 
 // provide any specific percentages that are required for a given layer and rarity level
@@ -161,7 +161,7 @@ const layers = [
 addRarityPercentForLayer("original", "Eyes", {
   super_rare: 0,
   rare: 0,
-  original: 100,
+  original: 100
 });
 
 module.exports = {
@@ -172,5 +172,5 @@ module.exports = {
   baseImageUri,
   editionSize,
   startEditionFrom,
-  rarityWeights,
+  rarityWeights
 };

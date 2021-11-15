@@ -12,14 +12,12 @@ const writeMetaData = metadataList => {
 
 // add metadata for individual nft edition
 const generateMetadata = (dna, edition, attributesList, path) => {
-  let dateTime = Date.now();
   let tempMetadata = {
-    dna: dna.join(""),
     name: `#${edition}`,
     description: description,
     image: path || baseImageUri,
     edition: edition,
-    date: dateTime,
+    date: Date.now(),
     attributes: attributesList
   };
   return tempMetadata;
