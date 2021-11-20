@@ -41,10 +41,10 @@ const saveToDb = async (metaHash, imageHash, imageData) => {
 };
 
 // add metadata for individual nft edition
-const generateMetadata = (edition, attributesList, path) => {
+const generateMetadata = (edition, name, description, attributesList, path) => {
   let tempMetadata = {
-    name: `#${edition}`, // TODO: could generate random querky name
-    description: "New king in town",
+    name: name,
+    description: description,
     image: path || null,
     edition: edition,
     date: Date.now(),
@@ -63,6 +63,8 @@ const uploadMetadata = async (apiUrl, xAPIKey, imageCID, imageData) => {
   // holds metadata for all NFTs (could be a session store of data)
   const metadata = generateMetadata(
     imageData.edition,
+    imageData.name,
+    imageData.description,
     imageData.attributesList,
     imageData.filePath
   );
