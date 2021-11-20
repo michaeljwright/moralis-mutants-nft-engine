@@ -22,16 +22,16 @@ Moralis.start({ serverUrl, appId, masterKey });
 
 // Create generative art by using the canvas api
 const startCreating = async () => {
-  let imageDataArray = [
-    null,
-    {
-      editionCount: 1,
-      newDna: [],
-      attributesList: []
-    }
-  ];
+  // TODO: get name for today (filename without extension)
 
-  await compileMetadata(apiUrl, apiKey, 2, 1, imageDataArray);
+  let imageData = {
+    file: "0000000000000000000000000000000000000000000000000000000000000001",
+    edition: 1,
+    newDna: [],
+    attributesList: []
+  };
+
+  await compileMetadata(apiUrl, apiKey, imageData);
 };
 
 // Initiate code

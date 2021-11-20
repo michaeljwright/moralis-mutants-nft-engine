@@ -3,39 +3,36 @@ const Moralis = require("moralis/node");
 const { default: axios } = require("axios");
 const request = require("request");
 
-// upload to database
-const saveToDb = async (metaHash, imageHash, editionSize) => {
-  for (let i = 1; i < editionSize + 1; i++) {
-    let id = i.toString();
-    let paddedHex = (
-      "0000000000000000000000000000000000000000000000000000000000000000" + id
-    ).slice(-64);
-    let url = `https://ipfs.moralis.io:2053/ipfs/${metaHash}/metadata/${paddedHex}.json`;
-    let options = { json: true };
-
-    request(url, options, (error, res, body) => {
-      if (error) {
-        return console.log(error);
-      }
-
-      if (!error && res.statusCode == 200) {
-        // Save file reference to Moralis
-        const FileDatabase = new Moralis.Object("Metadata");
-        FileDatabase.set("edition", body.edition);
-        FileDatabase.set("name", body.name);
-        FileDatabase.set("image", body.image);
-        FileDatabase.set("attributes", body.attributes);
-        FileDatabase.set("meta_hash", metaHash);
-        FileDatabase.set("image_hash", imageHash);
-        FileDatabase.save();
-      }
-    });
-  }
+// write metadata locally to json files
+const writeMetaData = async metadataList => {
+  await fs.writeFileSync(
+    "./output/_metadata.json",
+    JSON.stringify(metadataList)
+  );
 };
 
-// write metadata locally to json files
-const writeMetaData = metadataList => {
-  fs.writeFileSync("./output/_metadata.json", JSON.stringify(metadataList));
+// upload to Moralis database
+const saveToDb = async (metaHash, imageHash, imageData) => {
+  const url = `https://ipfs.moralis.io:2053/ipfs/${metaHash}/metadata/${imageData.file}.json`;
+  const options = { json: true };
+
+  await request(url, options, async (error, res, body) => {
+    if (error) {
+      return console.log(error);
+    }
+
+    if (!error && res.statusCode == 200) {
+      // Save file reference to Moralis
+      const FileDatabase = await new Moralis.Object("Metadata");
+      FileDatabase.set("edition", body.edition);
+      FileDatabase.set("name", body.name);
+      FileDatabase.set("image", body.image);
+      FileDatabase.set("attributes", body.attributes);
+      FileDatabase.set("meta_hash", metaHash);
+      FileDatabase.set("image_hash", imageHash);
+      FileDatabase.save();
+    }
+  });
 };
 
 // add metadata for individual nft edition
@@ -52,81 +49,53 @@ const generateMetadata = (edition, attributesList, path) => {
 };
 
 // upload metadata
-const uploadMetadata = async (
-  apiUrl,
-  xAPIKey,
-  imageCID,
-  editionSize,
-  imageDataArray
-) => {
-  const ipfsArray = []; // holds all IPFS data
-  const metadataList = []; // holds metadata for all NFTs (could be a session store of data)
-  const promiseArray = []; // array of promises so that only if finished, will next promise be initiated
+const uploadMetadata = async (apiUrl, xAPIKey, imageCID, imageData) => {
+  const filename = imageData.file.toString() + ".json";
 
-  for (let i = 1; i < editionSize + 1; i++) {
-    let id = i.toString();
-    let paddedHex = (
-      "0000000000000000000000000000000000000000000000000000000000000000" + id
-    ).slice(-64);
-    let filename = i.toString() + ".json";
+  imageData.filePath = `https://ipfs.moralis.io:2053/ipfs/${imageCID}/images/${imageData.file}.png`;
+  //imageDataArray[i].image_file = res.data[i].content;
 
-    let filetype = "base64";
-    imageDataArray[
-      i
-    ].filePath = `https://ipfs.moralis.io:2053/ipfs/${imageCID}/images/${paddedHex}.png`;
-    //imageDataArray[i].image_file = res.data[i].content;
+  // holds metadata for all NFTs (could be a session store of data)
+  const metadata = generateMetadata(
+    imageData.edition,
+    imageData.attributesList,
+    imageData.filePath
+  );
 
-    // do something else here after firstFunction completes
-    let nftMetadata = generateMetadata(
-      imageDataArray[i].editionCount,
-      imageDataArray[i].attributesList,
-      imageDataArray[i].filePath
-    );
-    metadataList.push(nftMetadata);
+  // upload metafile data to Moralis
+  await new Moralis.File(filename, {
+    base64: Buffer.from(JSON.stringify(metadata)).toString("base64")
+  });
 
-    // upload metafile data to Moralis
-    const metaFile = new Moralis.File(filename, {
-      base64: Buffer.from(
-        JSON.stringify(metadataList.find(meta => meta.edition == i))
-      ).toString("base64")
-    });
+  // save JSON file locally
+  await fs.writeFileSync(`./output/${filename}`, JSON.stringify(metadata));
 
-    // save JSON file locally
-    fs.writeFileSync(
-      `./output/${filename}`,
-      JSON.stringify(metadataList.find(meta => meta.edition == i))
-    );
+  // reads local JSON file then adds to IPFS object (as array)
+  await fs.readFile(`./output/${imageData.file}.json`, async (err, data) => {
+    if (err) rej();
 
-    // reads output folder for json files and then adds to IPFS object array
-    promiseArray.push(
-      new Promise((res, rej) => {
-        fs.readFile(`./output/${id}.json`, (err, data) => {
-          if (err) rej();
-          ipfsArray.push({
-            path: `metadata/${paddedHex}.json`,
+    // sends data to IPFS to store image
+    await axios
+      .post(
+        apiUrl,
+        [
+          {
+            path: `metadata/${imageData.file}.json`,
             content: data.toString("base64")
-          });
-          res();
-        });
-      })
-    );
-  }
-
-  // once all promises back then save to IPFS and Moralis database
-  Promise.all(promiseArray).then(() => {
-    axios
-      .post(apiUrl, ipfsArray, {
-        headers: {
-          "X-API-Key": xAPIKey,
-          "content-type": "application/json",
-          accept: "application/json"
+          }
+        ],
+        {
+          headers: {
+            "X-API-Key": xAPIKey,
+            "content-type": "application/json",
+            accept: "application/json"
+          }
         }
-      })
+      )
       .then(res => {
         let metaCID = res.data[0].path.split("/")[4];
         console.log("META FILE PATHS:", res.data);
-        saveToDb(metaCID, imageCID, editionSize);
-        writeMetaData(metadataList);
+        saveToDb(metaCID, imageCID, imageData);
       })
       .catch(err => {
         console.log(err);
@@ -134,42 +103,21 @@ const uploadMetadata = async (
   });
 };
 
-// compile metadata (reads output folder images)
-const compileMetadata = async (
-  apiUrl,
-  xAPIKey,
-  editionCount,
-  editionSize,
-  imageDataArray
-) => {
-  ipfsArray = [];
-  promiseArray = [];
+// compile metadata (reads output from generated image)
+const compileMetadata = async (apiUrl, xAPIKey, imageData) => {
+  // read image for today
+  await fs.readFile(`./output/${imageData.file}.png`, async (err, data) => {
+    if (err) rej();
+    const metaData = [
+      {
+        path: `images/${imageData.file}.png`,
+        content: data.toString("base64")
+      }
+    ];
 
-  for (let i = 1; i < editionCount; i++) {
-    let id = i.toString();
-    let paddedHex = (
-      "0000000000000000000000000000000000000000000000000000000000000000" + id
-    ).slice(-64);
-
-    // reads output folder for images and adds to IPFS object metadata array (within promise array)
-    promiseArray.push(
-      new Promise((res, rej) => {
-        fs.readFile(`./output/${id}.png`, (err, data) => {
-          if (err) rej();
-          ipfsArray.push({
-            path: `images/${paddedHex}.png`,
-            content: data.toString("base64")
-          });
-          res();
-        });
-      })
-    );
-  }
-
-  // once all promises then upload IPFS object metadata array
-  Promise.all(promiseArray).then(() => {
-    axios
-      .post(apiUrl, ipfsArray, {
+    // post data to Moralis
+    await axios
+      .post(apiUrl, metaData, {
         headers: {
           "X-API-Key": xAPIKey,
           "content-type": "application/json",
@@ -180,8 +128,9 @@ const compileMetadata = async (
         console.log("IMAGE FILE PATHS:", res.data);
         let imageCID = res.data[0].path.split("/")[4];
         console.log("IMAGE CID:", imageCID);
-        // pass folder CID to meta data
-        uploadMetadata(apiUrl, xAPIKey, imageCID, editionSize, imageDataArray);
+
+        // pass folder CID to meta data and upload image
+        uploadMetadata(apiUrl, xAPIKey, imageCID, imageData);
       })
       .catch(err => {
         console.log(err);
