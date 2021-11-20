@@ -11,6 +11,11 @@ const writeMetaData = async metadataList => {
   );
 };
 
+// TODO: method to delete files written locally for tidy up
+const deleteFilesTidyUp = async imageData => {
+  return true;
+};
+
 // upload to Moralis database
 const saveToDb = async (metaHash, imageHash, imageData) => {
   const url = `https://ipfs.moralis.io:2053/ipfs/${metaHash}/metadata/${imageData.file}.json`;
@@ -38,7 +43,7 @@ const saveToDb = async (metaHash, imageHash, imageData) => {
 // add metadata for individual nft edition
 const generateMetadata = (edition, attributesList, path) => {
   let tempMetadata = {
-    name: `#${edition}`,
+    name: `#${edition}`, // TODO: could generate random querky name
     description: "New king in town",
     image: path || null,
     edition: edition,
