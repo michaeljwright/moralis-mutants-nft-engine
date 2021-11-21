@@ -11,9 +11,27 @@ const writeMetaData = async metadataList => {
   );
 };
 
-// TODO: method to delete files written locally for tidy up
-const deleteFilesTidyUp = async imageData => {
-  return true;
+// delete files written locally for tidy up
+const deleteFilesTidyUp = async (imageData, keepImages = true) => {
+  let response = null;
+
+  try {
+    await fs.unlinkSync(`./output/${imageData.file}.json`);
+
+    if (!keepImages) {
+      try {
+        await fs.unlinkSync(`./output/${imageData.file}.png`);
+      } catch (err) {
+        console.log(err);
+        response = err;
+      }
+    }
+  } catch (err) {
+    console.log(err);
+    response = err;
+  }
+
+  return response;
 };
 
 // upload to Moralis database
@@ -74,12 +92,12 @@ const uploadMetadata = async (apiUrl, xAPIKey, imageCID, imageData) => {
     base64: Buffer.from(JSON.stringify(metadata)).toString("base64")
   });
 
-  // save JSON file locally
+  // write JSON file locally
   await fs.writeFileSync(`./output/${filename}`, JSON.stringify(metadata));
 
   // reads local JSON file then adds to IPFS object (as array)
   await fs.readFile(`./output/${imageData.file}.json`, async (err, data) => {
-    if (err) rej();
+    if (err) console.log(err);
 
     // sends data to IPFS to store image
     await axios
@@ -99,10 +117,11 @@ const uploadMetadata = async (apiUrl, xAPIKey, imageCID, imageData) => {
           }
         }
       )
-      .then(res => {
+      .then(async res => {
         let metaCID = res.data[0].path.split("/")[4];
         console.log("META FILE PATHS:", res.data);
-        saveToDb(metaCID, imageCID, imageData);
+        await deleteFilesTidyUp(imageData);
+        await saveToDb(metaCID, imageCID, imageData);
       })
       .catch(err => {
         console.log(err);
@@ -114,7 +133,7 @@ const uploadMetadata = async (apiUrl, xAPIKey, imageCID, imageData) => {
 const compileMetadata = async (apiUrl, xAPIKey, imageData) => {
   // read image for today
   await fs.readFile(`./output/${imageData.file}.png`, async (err, data) => {
-    if (err) rej();
+    if (err) console.log(err);
     const metaData = [
       {
         path: `images/${imageData.file}.png`,

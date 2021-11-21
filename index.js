@@ -26,6 +26,7 @@ const apiUrl = process.env.API_URL;
 const apiKey = process.env.API_KEY;
 const imageHash = process.env.IMAGE_HASH;
 const startDate = process.env.START_DATE;
+const currentDate = process.env.CURRENT_DATE; // set to blank in env for today
 
 // start Moralis session
 Moralis.start({ serverUrl, appId, masterKey });
@@ -46,7 +47,7 @@ const getName = () => {
 
 const startCreating = async () => {
   // get today's date (no time)
-  const today = dayjs();
+  const today = currentDate ? dayjs(currentDate) : dayjs();
 
   // get unique filename (without extension) then add to image data object
   const imageData = {
